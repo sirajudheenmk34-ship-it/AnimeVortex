@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnimeVortex | High-Quality Streaming</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #ff2e2e; --bg-dark: #050505; --card-bg: #121212; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: var(--bg-dark); color: white; font-family: 'Poppins', sans-serif; overflow-x: hidden; }
+
+        /* Splash Screen */
+        #splash-screen { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; transition: 0.8s; }
+        .splash-logo { width: 80px; height: 80px; background: var(--accent); border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 40px; animation: zoomIn 1s infinite alternate; box-shadow: 0 0 30px rgba(255, 46, 46, 0.6); }
+        @keyframes zoomIn { from { transform: scale(1); } to { transform: scale(1.2); } }
+
+        /* Main Content */
+        #main-content { opacity: 0; transition: 1s; }
+        .header-section { padding: 50px 6% 30px; text-align: center; }
+        .brand { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 30px; cursor: pointer; }
+        .logo-icon { width: 50px; height: 50px; background: var(--accent); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px; }
+        .brand-name { font-size: 32px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
+
+        .search-box-container { max-width: 600px; margin: 0 auto; }
+        .search-box-container input { width: 100%; padding: 16px 25px; border-radius: 50px; border: 2px solid #333; background: #1a1a1a; color: white; outline: none; }
+
+        /* Anime Grid */
+        .container { padding: 40px 6%; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
+        .card { background: var(--card-bg); border-radius: 12px; overflow: hidden; transition: 0.3s; cursor: pointer; border: 1px solid #222; position: relative; }
+        .card img { width: 100%; height: 230px; object-fit: cover; }
+        .card-info { padding: 12px; text-align: center; }
+        
+        /* Admin Controls on Card */
+        .admin-btns { position: absolute; top: 5px; right: 5px; display: none; flex-direction: column; gap: 5px; }
+        .admin-btns button { padding: 5px 10px; border: none; border-radius: 5px; cursor: pointer; font-size: 10px; font-weight: bold; }
+        .edit-btn { background: #f39c12; color: white; }
+        .del-btn { background: #e74c3c; color: white; }
+
+        /* Modals */
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-box { width: 90%; max-width: 500px; background: #1a1a1a; padding: 25px; border-radius: 15px; border: 1px solid #333; }
+        .modal-box h2 { margin-bottom: 15px; color: var(--accent); }
+        .modal-box input { width: 100%; padding: 12px; margin-bottom: 10px; background: #000; border: 1px solid #333; color: white; border-radius: 5px; }
+        .modal-box button { width: 100%; padding: 12px; background: var(--accent); border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 5px; }
+        .close-modal { text-align: right; cursor: pointer; color: #888; margin-bottom: 10px; }
+
+        /* Video Player */
+        #playerOverlay .player-container { width: 95%; max-width: 900px; }
+        iframe { width: 100%; aspect-ratio: 16/9; border-radius: 8px; border: 1px solid #333; }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="splash-logo">V</div>
+        <h1 style="margin-top: 20px; letter-spacing: 3px;">ANIMEVORTEX</h1>
+    </div>
+
+    <div id="main-content">
+        <div class="header-section">
+            <div class="brand" onclick="checkAdmin()">
+                <div class="logo-icon">V</div>
+                <div class="brand-name">AnimeVortex</div>
+            </div>
+            <div class="search-box-container">
+                <input type="text" id="searchBar" placeholder="Search anime...">
+            </div>
+            <button id="addBtn" style="display:none; margin-top:20px; padding:10px 20px; background:var(--accent); border:none; color:white; border-radius:5px; cursor:pointer;" onclick="openUploadModal()">+ Upload New Anime</button>
+        </div>
+
+        <main class="container">
+            <div class="grid" id="animeGrid"></div>
+        </main>
+    </div>
+
+    <!-- Upload/Edit Modal -->
+    <div id="adminModal" class="overlay">
+        <div class="modal-box">
+            <div class="close-modal" onclick="closeModal('adminModal')">CLOSE</div>
+            <h2 id="modalTitle">Upload Anime</h2>
+            <input type="text" id="animeTitle" placeholder="Anime Title">
+            <input type="text" id="animeImg" placeholder="Thumbnail URL">
+            <input type="text" id="animeUrl" placeholder="Video Embed URL">
+            <button id="saveBtn" onclick="saveAnime()">Save Anime</button>
+        </div>
+    </div>
+
+    <!-- Video Player Overlay -->
+    <div id="playerOverlay" class="overlay">
+        <div class="player-box">
+            <div class="close-modal" onclick="closePlayer()">CLOSE PLAYER</div>
+            <iframe id="videoFrame" src="" frameborder="0" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <script>
+        let animeData = JSON.parse(localStorage.getItem('animeVortexData')) || [
+            { id: 1, title: "Solo Leveling", image: "https://m.media-amazon.com/images/M/MV5BODViZWRhMDAtZGVhOS00NDVjLTgxOTAtODIyY2I1OTMxY2VlXkEyXkFqcGdeQXVyMTAxNzQ1NzI@._V1_.jpg", url: "https://www.youtube.com/embed/SwaX0Xon4oE" }
+        ];
+        
+        let isAdmin = false;
+        let editingId = null;
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('splash-screen').style.display = 'none';
+                document.getElementById('main-content').style.opacity = '1';
+                renderGrid(animeData);
+            }, 2500);
+        });
+
+        function renderGrid(data) {
+            const grid = document.getElementById('animeGrid');
+            grid.innerHTML = '';
+            data.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <img src="${item.image}" onclick="openPlayer('${item.url}')">
+                    <div class="card-info"><h3>${item.title}</h3></div>
+                    <div class="admin-btns" style="display:${isAdmin ? 'flex' : 'none'}">
+                        <button class="edit-btn" onclick="openEditModal(${item.id})">Edit</button>
+                        <button class="del-btn" onclick="deleteAnime(${item.id})">Delete</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Admin Auth
+        function checkAdmin() {
+            const pass = prompt("Enter Admin Password:");
+            if(pass === "9847ni") {
+                isAdmin = true;
+                document.getElementById('addBtn').style.display = 'inline-block';
+                renderGrid(animeData);
+                alert("Admin Access Granted!");
+            }
+        }
+
+        function openUploadModal() {
+            editingId = null;
+            document.getElementById('modalTitle').innerText = "Upload Anime";
+            document.getElementById('animeTitle').value = '';
+            document.getElementById('animeImg').value = '';
+            document.getElementById('animeUrl').value = '';
+            document.getElementById('adminModal').style.display = 'flex';
+        }
+
+        function openEditModal(id) {
+            editingId = id;
+            const anime = animeData.find(a => a.id === id);
+            document.getElementById('modalTitle').innerText = "Edit Anime";
+            document.getElementById('animeTitle').value = anime.title;
+            document.getElementById('animeImg').value = anime.image;
+            document.getElementById('animeUrl').value = anime.url;
+            document.getElementById('adminModal').style.display = 'flex';
+        }
+
+        function saveAnime() {
+            const title = document.getElementById('animeTitle').value;
+            const image = document.getElementById('animeImg').value;
+            const url = document.getElementById('animeUrl').value;
+
+            if(editingId) {
+                const index = animeData.findIndex(a => a.id === editingId);
+                animeData[index] = { id: editingId, title, image, url };
+            } else {
+                const newId = animeData.length ? animeData[animeData.length-1].id + 1 : 1;
+                animeData.push({ id: newId, title, image, url });
+            }
+            
+            localStorage.setItem('animeVortexData', JSON.stringify(animeData));
+            renderGrid(animeData);
+            closeModal('adminModal');
+        }
+
+        function deleteAnime(id) {
+            if(confirm("Are you sure you want to delete this?")) {
+                animeData = animeData.filter(a => a.id !== id);
+                localStorage.setItem('animeVortexData', JSON.stringify(animeData));
+                renderGrid(animeData);
+            }
+        }
+
+        function openPlayer(url) {
+            document.getElementById('videoFrame').src = url;
+            document.getElementById('playerOverlay').style.display = 'flex';
+        }
+
+        function closePlayer() {
+            document.getElementById('playerOverlay').style.display = 'none';
+            document.getElementById('videoFrame').src = '';
+        }
+
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        document.getElementById('searchBar').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = animeData.filter(a => a.title.toLowerCase().includes(query));
+            renderGrid(filtered);
+        });
+    </script>
+</body>
+</html>
